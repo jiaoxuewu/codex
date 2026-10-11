@@ -5,6 +5,7 @@
   let level = 1, active = false, round = 0, target = '', deadline = 0;
   let score = 0, correct = 0, wrong = 0, missed = 0, streak = 0;
   let raf = 0, advanceTimer = 0, transition = false;
+  let preparing = false, preparationDeadline = 0, countdownNumber = 0;
   const keys = {};
   let soundEnabled = true;
   const speech = window.speechSynthesis;
@@ -14,7 +15,8 @@
     const phrases = {
       start: '开始练习', correct: '正确', wrong: '再试一次',
       missed: '时间到了', finish: `练习完成，得分${score}分`,
-      stop: '练习结束', enabled: '语音已开启'
+      stop: '练习结束', enabled: '语音已开启',
+      ready3: '三', ready2: '二', ready1: '一'
     };
     if (!phrases[kind]) return;
     try {
@@ -70,7 +72,7 @@
   }
   function finish(early = false) {
     sound(early ? 'stop' : 'finish');
-    active = false; transition = false;
+    active = false; transition = false; preparing = false;
     cancelAnimationFrame(raf); clearTimeout(advanceTimer); clearKeys(); controls();
     $('status').textContent = early ? '练习已结束' : '挑战完成';
     $('hint').textContent = '本次练习总得分'; $('letter').textContent = score;
@@ -79,7 +81,7 @@
     $('start').innerHTML = '再练一局 <span>→</span>';
   }
   function settle(kind) {
-    if (!active || transition) return;
+    if (!active || transition || preparing) return;
     transition = true; cancelAnimationFrame(raf);
     sound(kind);
     if (kind === 'correct') { score += level * 10; correct++; streak++; }
@@ -90,7 +92,7 @@
     advanceTimer = setTimeout(() => { if (round >= 20) finish(); else nextRound(); }, 550);
   }
   function tick() {
-    if (!active || transition) return;
+    if (!active || transition || preparing) return;
     const left = Math.max(0, deadline - performance.now()); drawTime(left);
     if (left === 0) settle('missed'); else raf = requestAnimationFrame(tick);
   }
@@ -105,7 +107,7 @@
     deadline = performance.now() + (4 - level) * 1000; tick();
   }
   function answer(letter) {
-    if (!active || transition) return;
+    if (!active || transition || preparing) return;
     if (performance.now() >= deadline) { drawTime(0); settle('missed'); return; }
     keys[letter].classList.add('pressed'); settle(letter === target ? 'correct' : 'wrong');
   }
@@ -115,12 +117,37 @@
     levels.forEach(item => { const selected = item === button; item.classList.toggle('selected', selected); item.setAttribute('aria-pressed', String(selected)); });
     drawTime((4 - level) * 1000);
   }));
+  function preparationTick() {
+    if (!active || !preparing) return;
+    const left = Math.max(0, preparationDeadline - performance.now());
+    if (left === 0) {
+      preparing = false;
+      $('status').textContent = '练习进行中';
+      sound('start');
+      nextRound();
+      return;
+    }
+    const number = Math.ceil(left / 1000);
+    if (number !== countdownNumber) {
+      countdownNumber = number;
+      $('letter').textContent = number;
+      $('feedback').textContent = `${number} 秒后开始，准备好你的手指`;
+      sound(`ready${number}`);
+    }
+    raf = requestAnimationFrame(preparationTick);
+  }
   $('start').addEventListener('click', () => {
-    sound('start');
+    if (active) return;
     cancelAnimationFrame(raf); clearTimeout(advanceTimer);
     score = correct = wrong = missed = streak = round = 0;
-    active = true; stats(); controls(); $('status').textContent = '练习进行中';
-    $('start').blur(); nextRound();
+    active = true; preparing = true; transition = false; countdownNumber = 0;
+    stats(); controls(); clearKeys();
+    $('status').textContent = '即将开始';
+    $('round').textContent = '00 / 20';
+    $('hint').textContent = '准备开始'; $('letter').className = 'letter';
+    drawTime((4 - level) * 1000);
+    preparationDeadline = performance.now() + 3000;
+    $('start').blur(); preparationTick();
   });
   $('stop').addEventListener('click', () => finish(true));
   document.addEventListener('keydown', event => {
@@ -130,6 +157,9 @@
   });
   // 切回标签页时立即核对实际截止时间，避免后台节流延长本轮。
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && active && !transition) { cancelAnimationFrame(raf); tick(); }
+    if (!document.hidden && active && !transition) {
+      cancelAnimationFrame(raf);
+      if (preparing) preparationTick(); else tick();
+    }
   });
 })();
