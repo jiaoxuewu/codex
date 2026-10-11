@@ -6,6 +6,47 @@
   let score = 0, correct = 0, wrong = 0, missed = 0, streak = 0;
   let raf = 0, advanceTimer = 0, transition = false;
   const keys = {};
+  let soundEnabled = true, audio = null;
+  const voices = new Set();
+  function unlockAudio() {
+    if (!soundEnabled) return;
+    try {
+      const Audio = window.AudioContext || window.webkitAudioContext;
+      if (!Audio) return;
+      if (!audio) audio = new Audio();
+      if (audio.state === 'suspended') audio.resume().catch(() => {});
+    } catch (_) { /* 音频不可用时仍可正常游玩。 */ }
+  }
+  function sound(kind) {
+    if (!soundEnabled || !audio || audio.state !== 'running') return;
+    const melodies = {
+      start: [440, 660], key: [260], correct: [660, 880],
+      wrong: [220, 165], missed: [330, 220, 165], finish: [523, 659, 784, 1047]
+    };
+    const notes = melodies[kind];
+    const duration = kind === 'key' ? 0.035 : 0.12;
+    try {
+      notes.forEach((frequency, index) => {
+        const oscillator = audio.createOscillator(), gain = audio.createGain();
+        const start = audio.currentTime + index * 0.13;
+        oscillator.type = 'sine'; oscillator.frequency.value = frequency;
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(kind === 'key' ? 0.025 : 0.075, start + 0.008);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+        oscillator.connect(gain); gain.connect(audio.destination);
+        voices.add(oscillator);
+        oscillator.onended = () => { voices.delete(oscillator); oscillator.disconnect(); gain.disconnect(); };
+        oscillator.start(start); oscillator.stop(start + duration + 0.01);
+      });
+    } catch (_) { /* 不让音效失败打断游戏。 */ }
+  }
+  $('sound').addEventListener('click', () => {
+    soundEnabled = !soundEnabled;
+    $('sound').textContent = soundEnabled ? '♫ 声音开' : '♪ 已静音';
+    $('sound').setAttribute('aria-pressed', String(soundEnabled));
+    if (soundEnabled) { unlockAudio(); sound('start'); }
+    else { voices.forEach(voice => { try { voice.stop(); } catch (_) {} }); }
+  });
   for (const row of ['qwertyuiop', 'asdfghjkl', 'zxcvbnm']) {
     const container = document.createElement('div');
     container.className = 'key-row';
@@ -34,6 +75,7 @@
     $('timebar').classList.toggle('urgent', left < 700);
   }
   function finish(early = false) {
+    if (!early) sound('finish');
     active = false; transition = false;
     cancelAnimationFrame(raf); clearTimeout(advanceTimer); clearKeys(); controls();
     $('status').textContent = early ? '练习已结束' : '挑战完成';
@@ -45,6 +87,7 @@
   function settle(kind) {
     if (!active || transition) return;
     transition = true; cancelAnimationFrame(raf);
+    sound(kind);
     if (kind === 'correct') { score += level * 10; correct++; streak++; }
     else { streak = 0; if (kind === 'wrong') wrong++; else missed++; }
     $('letter').className = `letter ${kind === 'correct' ? 'good' : 'bad'}`;
@@ -69,7 +112,9 @@
   }
   function answer(letter) {
     if (!active || transition) return;
+    unlockAudio();
     if (performance.now() >= deadline) { drawTime(0); settle('missed'); return; }
+    sound('key');
     keys[letter].classList.add('pressed'); settle(letter === target ? 'correct' : 'wrong');
   }
   levels.forEach(button => button.addEventListener('click', () => {
@@ -79,6 +124,7 @@
     drawTime((4 - level) * 1000);
   }));
   $('start').addEventListener('click', () => {
+    unlockAudio(); sound('start');
     cancelAnimationFrame(raf); clearTimeout(advanceTimer);
     score = correct = wrong = missed = streak = round = 0;
     active = true; stats(); controls(); $('status').textContent = '练习进行中';
