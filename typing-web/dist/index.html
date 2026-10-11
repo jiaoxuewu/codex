@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Keyflow · 打字练习</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<header><a class="brand" href="./"><span class="logo">⌘</span> keyflow<span class="brand-note">打字练习</span></a><span class="header-note">专注每一次敲击 <span class="dot"></span></span></header>
+<main>
+<div class="intro"><div class="eyebrow">FIND YOUR RHYTHM</div><h1>让指尖，找到节奏。</h1><p>看见字母，轻轻敲下。在 20 次挑战里，练出你的手感。</p></div>
+<div class="layout"><section class="game-card" aria-label="打字游戏">
+<div class="game-top"><span><span class="live-dot"></span><span id="status">准备开始</span></span><span id="round">00 / 20</span></div>
+<div class="stage"><div class="target-label" id="hint">准备好了吗？</div><div class="letter" id="letter">Aa</div><div class="feedback" id="feedback" role="status" aria-live="polite">选择一个速度，开始你的练习</div></div>
+<div class="timer-row"><span>本轮剩余时间</span><strong id="time">3.0<span> 秒</span></strong></div><div class="track"><div id="timebar"></div></div>
+<div id="keyboard" class="keyboard" aria-label="屏幕键盘"></div>
+<div class="game-bottom"><span>⌨ 实体键盘或点击字母 · 大小写均可</span><button id="stop" disabled>结束练习 ↗</button></div>
+</section>
+<aside><section class="settings panel"><div class="panel-title">你的练习节奏 <span>01</span></div><p class="small">从容起步，或挑战反应极限。</p><div class="levels" role="group" aria-label="选择速度"><button class="level selected" data-level="1" aria-pressed="true"><span class="level-icon">◌</span><span><b>慢速</b><small>每个字母 3 秒</small></span><span class="points">+10 分</span></button><button class="level" data-level="2" aria-pressed="false"><span class="level-icon">≈</span><span><b>中速</b><small>每个字母 2 秒</small></span><span class="points">+20 分</span></button><button class="level" data-level="3" aria-pressed="false"><span class="level-icon">ϟ</span><span><b>快速</b><small>每个字母 1 秒</small></span><span class="points">+30 分</span></button></div><button class="start" id="start">开始练习 <span>→</span></button><div class="small center">每局 20 轮 · 按错或超时不得分</div></section>
+<section class="panel stats"><div class="panel-title">本局表现 <span>02</span></div><div class="score"><strong id="score">0</strong><span>总得分</span></div><div class="metrics"><div><strong id="accuracy">—</strong><span>准确率</span></div><div><strong id="streak">0</strong><span>连续正确</span></div></div><div class="counts"><span>正确 <b id="correct">0</b></span><span>错误 <b id="wrong">0</b></span><span>超时 <b id="missed">0</b></span></div></section><div class="tip">✦ 小提示<span>放松肩膀，目光留在字母上。<br>准确，比一味追求速度更重要。</span></div></aside></div>
+<footer><span>一点专注，一点进步。</span><span>KEYFLOW / PRACTICE MAKES PROGRESS</span></footer>
+</main><script src="game.js"></script></body></html>
