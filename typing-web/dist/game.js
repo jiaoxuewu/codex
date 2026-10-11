@@ -6,47 +6,41 @@
   let score = 0, correct = 0, wrong = 0, missed = 0, streak = 0;
   let raf = 0, advanceTimer = 0, transition = false;
   const keys = {};
-  let soundEnabled = true, audio = null;
-  const voices = new Set();
-  function unlockAudio() {
-    if (!soundEnabled) return;
-    try {
-      const Audio = window.AudioContext || window.webkitAudioContext;
-      if (!Audio) return;
-      if (!audio) audio = new Audio();
-      if (audio.state === 'suspended') audio.resume().catch(() => {});
-    } catch (_) { /* 音频不可用时仍可正常游玩。 */ }
-  }
+  let soundEnabled = true;
+  const speech = window.speechSynthesis;
+  const Utterance = window.SpeechSynthesisUtterance;
   function sound(kind) {
-    if (!soundEnabled || !audio || audio.state !== 'running') return;
-    const melodies = {
-      start: [440, 660], key: [260], correct: [660, 880],
-      wrong: [220, 165], missed: [330, 220, 165], finish: [523, 659, 784, 1047]
+    if (!soundEnabled || !speech || !Utterance) return;
+    const phrases = {
+      start: '开始练习', correct: '正确', wrong: '再试一次',
+      missed: '时间到了', finish: `练习完成，得分${score}分`,
+      stop: '练习结束', enabled: '语音已开启'
     };
-    const notes = melodies[kind];
-    const duration = kind === 'key' ? 0.035 : 0.12;
+    if (!phrases[kind]) return;
     try {
-      notes.forEach((frequency, index) => {
-        const oscillator = audio.createOscillator(), gain = audio.createGain();
-        const start = audio.currentTime + index * 0.13;
-        oscillator.type = 'sine'; oscillator.frequency.value = frequency;
-        gain.gain.setValueAtTime(0, start);
-        gain.gain.linearRampToValueAtTime(kind === 'key' ? 0.025 : 0.075, start + 0.008);
-        gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
-        oscillator.connect(gain); gain.connect(audio.destination);
-        voices.add(oscillator);
-        oscillator.onended = () => { voices.delete(oscillator); oscillator.disconnect(); gain.disconnect(); };
-        oscillator.start(start); oscillator.stop(start + duration + 0.01);
-      });
-    } catch (_) { /* 不让音效失败打断游戏。 */ }
+      // 每次重新获取语音，兼容浏览器异步加载语音列表。
+      const voices = speech.getVoices();
+      const mainland = voices.find(voice => /^zh[-_]CN$/i.test(voice.lang));
+      const mandarin = mainland || voices.find(voice => /^zh[-_](TW|SG)$/i.test(voice.lang));
+      const utterance = new Utterance(phrases[kind]);
+      utterance.lang = 'zh-CN';
+      if (mandarin) utterance.voice = mandarin;
+      utterance.rate = 1.15;
+      utterance.pitch = 1;
+      utterance.volume = 0.8;
+      // 丢弃旧播报，快速模式下也不会排队积压。
+      speech.cancel();
+      speech.speak(utterance);
+    } catch (_) { /* 语音不可用时仍可正常游玩。 */ }
   }
   $('sound').addEventListener('click', () => {
     soundEnabled = !soundEnabled;
-    $('sound').textContent = soundEnabled ? '♫ 声音开' : '♪ 已静音';
+    $('sound').textContent = soundEnabled ? '♫ 普通话开' : '♪ 已静音';
     $('sound').setAttribute('aria-pressed', String(soundEnabled));
-    if (soundEnabled) { unlockAudio(); sound('start'); }
-    else { voices.forEach(voice => { try { voice.stop(); } catch (_) {} }); }
+    if (soundEnabled) sound('enabled');
+    else { try { speech?.cancel(); } catch (_) {} }
   });
+  window.addEventListener('pagehide', () => { try { speech?.cancel(); } catch (_) {} });
   for (const row of ['qwertyuiop', 'asdfghjkl', 'zxcvbnm']) {
     const container = document.createElement('div');
     container.className = 'key-row';
@@ -75,7 +69,7 @@
     $('timebar').classList.toggle('urgent', left < 700);
   }
   function finish(early = false) {
-    if (!early) sound('finish');
+    sound(early ? 'stop' : 'finish');
     active = false; transition = false;
     cancelAnimationFrame(raf); clearTimeout(advanceTimer); clearKeys(); controls();
     $('status').textContent = early ? '练习已结束' : '挑战完成';
@@ -112,9 +106,7 @@
   }
   function answer(letter) {
     if (!active || transition) return;
-    unlockAudio();
     if (performance.now() >= deadline) { drawTime(0); settle('missed'); return; }
-    sound('key');
     keys[letter].classList.add('pressed'); settle(letter === target ? 'correct' : 'wrong');
   }
   levels.forEach(button => button.addEventListener('click', () => {
@@ -124,7 +116,7 @@
     drawTime((4 - level) * 1000);
   }));
   $('start').addEventListener('click', () => {
-    unlockAudio(); sound('start');
+    sound('start');
     cancelAnimationFrame(raf); clearTimeout(advanceTimer);
     score = correct = wrong = missed = streak = round = 0;
     active = true; stats(); controls(); $('status').textContent = '练习进行中';
