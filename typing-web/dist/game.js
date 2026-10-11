@@ -46,8 +46,8 @@
     container.className = 'key-row';
     for (const letter of row) {
       const key = document.createElement('button');
-      key.className = 'key'; key.textContent = letter.toUpperCase();
-      key.setAttribute('aria-label', `输入字母 ${letter.toUpperCase()}`);
+      key.className = 'key'; key.textContent = letter;
+      key.setAttribute('aria-label', `输入字母 ${letter}`);
       key.addEventListener('click', () => answer(letter));
       keys[letter] = key; container.appendChild(key);
     }
@@ -85,7 +85,7 @@
     if (kind === 'correct') { score += level * 10; correct++; streak++; }
     else { streak = 0; if (kind === 'wrong') wrong++; else missed++; }
     $('letter').className = `letter ${kind === 'correct' ? 'good' : 'bad'}`;
-    $('feedback').textContent = kind === 'correct' ? `敲得漂亮！+${level * 10} 分` : kind === 'wrong' ? `没关系，下一个继续 · 正确字母是 ${target.toUpperCase()}` : '时间到了，下一个继续';
+    $('feedback').textContent = kind === 'correct' ? `敲得漂亮！+${level * 10} 分` : kind === 'wrong' ? `没关系，下一个继续 · 正确字母是 ${target}` : '时间到了，下一个继续';
     stats();
     advanceTimer = setTimeout(() => { if (round >= 20) finish(); else nextRound(); }, 550);
   }
@@ -98,7 +98,7 @@
     if (!active) return;
     transition = false; round++; clearKeys();
     target = String.fromCharCode(97 + Math.floor(Math.random() * 26));
-    $('letter').textContent = target.toUpperCase(); $('letter').className = 'letter';
+    $('letter').textContent = target; $('letter').className = 'letter';
     $('hint').textContent = '敲下这个字母'; $('feedback').textContent = '保持专注，你可以的';
     $('round').textContent = `${String(round).padStart(2, '0')} / 20`;
     keys[target].classList.add('active');
