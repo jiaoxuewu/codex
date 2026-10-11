@@ -1,4 +1,5 @@
 #include <chrono>
+#include <algorithm>
 #include <cctype>
 #include <cerrno>
 #include <iostream>
@@ -59,17 +60,29 @@ int main() {
         for (int round = 1; round <= 20; ++round) {
             tcflush(STDIN_FILENO, TCIFLUSH);
             char target = static_cast<char>('a' + letters(rng));
-            std::cout << "\n[" << round << "/20] 得分 " << score
-                      << "  请按： " << target << "  （" << 4 - level
-                      << " 秒） " << std::flush;
+            std::cout << '\n';
+            auto showCountdown = [&](int seconds) {
+                std::cout << "\r[" << round << "/20] 得分 " << score
+                          << "  请按： " << target << "  剩余："
+                          << seconds << " 秒  " << std::flush;
+            };
+            showCountdown(4 - level);
             auto deadline = Clock::now() + std::chrono::seconds(4 - level);
+            int displayedSeconds = 4 - level;
             bool answered = false;
             while (Clock::now() < deadline) {
                 auto remaining = std::chrono::duration_cast<std::chrono::microseconds>(
                     deadline - Clock::now()).count();
                 if (remaining <= 0) break;
-                timeval timeout{static_cast<long>(remaining / 1000000),
-                                static_cast<suseconds_t>(remaining % 1000000)};
+                int seconds = static_cast<int>((remaining + 999999) / 1000000);
+                if (seconds != displayedSeconds) {
+                    showCountdown(seconds);
+                    displayedSeconds = seconds;
+                }
+                // 短暂等待以刷新倒计时，同时随时响应按键。
+                auto waitMicros = std::min<long long>(remaining, 50000);
+                timeval timeout{static_cast<long>(waitMicros / 1000000),
+                                static_cast<suseconds_t>(waitMicros % 1000000)};
                 fd_set inputs;
                 FD_ZERO(&inputs);
                 FD_SET(STDIN_FILENO, &inputs);
@@ -79,7 +92,8 @@ int main() {
                     quit = true;
                     break;
                 }
-                if (result == 0) break;
+                if (result == 0) continue;
+                if (Clock::now() >= deadline) break;
                 unsigned char key = 0;
                 if (read(STDIN_FILENO, &key, 1) != 1) {
                     quit = true;
@@ -104,6 +118,7 @@ int main() {
             }
             if (quit) break;
             if (!answered) {
+                showCountdown(0);
                 ++missed;
                 ++played;
                 std::cout << "超时，本轮不得分。\n";
